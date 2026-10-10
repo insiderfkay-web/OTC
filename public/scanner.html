@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OTCinsider Token Scanner</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0a1220;color:#fff;font-family:Arial,sans-serif;padding:22px}
+h1{color:#e9bf72}
+input,button{width:100%;padding:15px;border-radius:9px;font-size:16px;margin:8px 0}
+input{background:#1b2b42;color:white;border:1px solid #52617a}
+button{background:#e9bf72;color:#101827;border:0;font-weight:bold;cursor:pointer}
+.card{background:#1b2b42;padding:18px;border-radius:12px;margin-top:16px;overflow-wrap:anywhere}
+a{color:#e9bf72}
+small{color:#aebbd0}
+</style>
+</head>
+<body>
+<a href="/dashboard/">← OTCinsider</a>
+<h1>Token Scanner</h1>
+<p>Paste a token contract address to scan available DEX markets.</p>
+<input id="ca" placeholder="Paste contract address">
+<button onclick="scan()">Scan Token</button>
+<div id="result"></div>
+<script>
+async function scan(){
+const address=document.getElementById("ca").value.trim();
+const result=document.getElementById("result");
+if(!address){result.textContent="Enter a contract address.";return}
+result.textContent="Searching DexScreener...";
+try{
+const response=await fetch(
+"https://api.dexscreener.com/latest/dex/tokens/"+encodeURIComponent(address)
+);
+if(!response.ok)throw Error("API request failed");
+const data=await response.json();
+const pairs=data.pairs||[];
+if(!pairs.length){
+result.textContent="No tracked DEX market found for this address.";
+return;
+}
+pairs.sort((a,b)=>(b.liquidity?.usd||0)-(a.liquidity?.usd||0));
+const p=pairs[0];
+const card=document.createElement("div");
+card.className="card";
+const title=document.createElement("h2");
+title.textContent=(p.baseToken?.name||"Unknown")+" ("+(p.baseToken?.symbol||"?")+")";
+card.appendChild(title);
+const rows=[
+["Network",p.chainId],
+["DEX",p.dexId],
+["Price USD",p.priceUsd],
+["Liquidity USD",p.liquidity?.usd],
+["24h Volume USD",p.volume?.h24],
+["24h Price Change %",p.priceChange?.h24],
+["Market Cap USD",p.marketCap]
+];
+for(const [label,value] of rows){
+const line=document.createElement("p");
+line.textContent=label+": "+(value??"N/A");
+card.appendChild(line);
+}
+const link=document.createElement("a");
+link.href=p.url;
+link.target="_blank";
+link.rel="noopener noreferrer";
+link.textContent="Open live DexScreener chart";
+card.appendChild(link);
+
+result.replaceChildren(card);
+// OTC_LIVE_CHART
+if (p.chainId && p.pairAddress) {
+  const frame = document.createElement('iframe');
+  frame.src = 'https://dexscreener.com/' +
+    encodeURIComponent(p.chainId) + '/' +
+    encodeURIComponent(p.pairAddress) +
+    '?embed=1&theme=dark';
+  frame.style.cssText =
+    'width:100%;height:480px;border:0;margin-top:20px';
+  frame.title = 'DexScreener chart';
+  frame.loading = 'lazy';
+  result.appendChild(frame);
+}
+
+}catch(e){
+result.textContent="Unable to load token data. Check your internet connection or try again.";
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OTCinsider Dashboard</title>
+<style>
+body{margin:0;background:#0b1220;color:white;font-family:Arial}
+header{padding:22px;background:#15243b;text-align:center}
+h1{margin:0;color:#e9bf72}
+nav{display:flex;gap:10px;padding:15px;overflow:auto}
+nav a{color:white;background:#253750;padding:12px;border-radius:8px;text-decoration:none}
+main{padding:18px}
+input{width:100%;box-sizing:border-box;padding:15px;background:#1a2940;color:white;border:1px solid #53657c;border-radius:8px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:18px}
+button{background:#192940;color:#e9bf72;border:1px solid #354960;border-radius:9px;padding:20px;font-size:20px}
+section{margin:30px 0}
+</style>
+</head>
+<body>
+<header><h1>OTCinsider</h1></header>
+<nav>
+<a href="#stocks">OTC Stocks</a>
+<a href="#memes">Meme Stocks</a>
+<a href="#charts">Charts</a>
+</nav>
+<main>
+<h2>Market Intelligence</h2>
+<p>Independent OTC stock news and investor research.</p>
+<input id="search" placeholder="Search ticker...">
+<section id="stocks">
+<h2>OTC Stock Watchlist</h2>
+<div class="grid" id="list"></div>
+</section>
+<section id="memes">
+<h2>Meme Stock Watch</h2>
+<div class="grid" id="memelist"></div>
+</section>
+<section id="charts">
+<h2>Stock Charts</h2>
+<p id="selected">Select a ticker above.</p>
+</section>
+</main>
+<script>
+const stocks=["IHAI","CVAT","TGBC","MITI","FDCT","FCUL"];
+const memes=["GME","AMC","KOSS"];
+function render(){
+const q=document.getElementById("search").value.toUpperCase();
+for(const [id,items] of [["list",stocks],["memelist",memes]]){
+const box=document.getElementById(id);
+box.replaceChildren();
+items.filter(t=>t.includes(q)).forEach(t=>{
+const b=document.createElement("button");
+b.textContent="$"+t;
+b.onclick=()=>{
+document.getElementById("selected").textContent="Selected: $"+t;
+location.hash="charts";
+};
+box.appendChild(b);
+});
+}
+}
+document.getElementById("search").oninput=render;
+render();
+</script>
+</body>
+</html>

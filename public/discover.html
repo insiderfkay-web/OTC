@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OTCinsider | Discovery Terminal</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#080e19;color:#e8edf5;font-family:Arial,sans-serif}
+header{padding:22px 18px;border-bottom:1px solid #263448;background:#101b2b}
+.brand{font-size:28px;font-weight:800;color:#e7bd72}
+.sub{font-size:11px;letter-spacing:2px;color:#91a2b8;margin-top:6px}
+main{max-width:1100px;margin:auto;padding:18px}
+h2{font-size:21px;margin:26px 0 12px}
+.muted{color:#9babc0;font-size:13px;line-height:1.6}
+nav{display:flex;gap:8px;overflow:auto;padding:15px 0}
+button,.btn{background:#1b2a40;color:#fff;border:1px solid #34465e;border-radius:8px;padding:12px;cursor:pointer;text-decoration:none}
+button.active{background:#e7bd72;color:#101722;font-weight:bold}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.stat,.panel{background:#111e30;border:1px solid #273a52;border-radius:12px;padding:15px}
+.stat strong{display:block;font-size:22px;margin-top:8px}
+.gold{color:#e7bd72}
+table{width:100%;border-collapse:collapse;min-width:580px}
+th,td{padding:14px 10px;text-align:left;border-bottom:1px solid #263448;font-size:13px}
+th{color:#90a3bb;font-size:11px;text-transform:uppercase}
+.tablewrap{overflow-x:auto}
+a{color:#e7bd72;text-decoration:none}
+input{width:100%;padding:15px;background:#16263a;border:1px solid #40536b;border-radius:9px;color:white;font-size:15px}
+.controls{display:flex;gap:8px;margin:14px 0}
+.controls button{white-space:nowrap}
+.good{color:#4ade80}
+.bad{color:#fb7185}
+footer{padding:25px 18px;color:#8798ae;font-size:12px;line-height:1.6}
+</style>
+</head>
+<body>
+<header>
+<div class="brand">OTCinsider</div>
+<div class="sub">DISCOVERY & MARKET INTELLIGENCE</div>
+</header>
+<main>
+<nav>
+<a class="btn" href="/dashboard/">Dashboard</a>
+<a class="btn" href="/dashboard/scanner.html">CA Scanner</a>
+<a class="btn" href="https://www.otcmarkets.com/" target="_blank" rel="noopener">OTC Markets</a>
+</nav>
+
+<h2>Early Market Radar</h2>
+<p class="muted">Explore emerging tokens using liquidity, activity, momentum and market age. Rankings are research signals, not buy recommendations.</p>
+
+<div class="stats">
+<div class="stat"><span class="muted">Tracked candidates</span><strong id="count">--</strong></div>
+<div class="stat"><span class="muted">Primary network</span><strong class="gold">Solana</strong></div>
+<div class="stat"><span class="muted">Market feed</span><strong style="font-size:16px">DexScreener</strong></div>
+<div class="stat"><span class="muted">Refresh</span><strong style="font-size:16px">Manual</strong></div>
+</div>
+
+<h2>Token Discovery Rankings</h2>
+<div class="controls">
+<button class="active" data-chain="solana">Solana</button>
+<button data-chain="bsc">BSC</button>
+<button data-chain="base">Base</button>
+<button data-chain="ethereum">Ethereum</button>
+</div>
+
+<input id="filter" placeholder="Filter by token name, symbol or address">
+
+<div class="panel" style="margin-top:15px">
+<div id="status" class="muted">Loading market candidates...</div>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Rank</th><th>Token</th><th>Score</th><th>Liquidity</th><th>24h Vol</th><th>24h %</th><th>Chart</th></tr></thead>
+<tbody id="rows"></tbody>
+</table>
+</div>
+</div>
+<p class="muted">Scores are experimental and relative to this feed. They do not measure contract safety or predict returns.</p>
+</main>
+<footer>OTCinsider Research Terminal. Market data may be delayed, incomplete or unavailable. Always verify token addresses, contract permissions, holder concentration and liquidity before trading.</footer>
+<script>
+let chain="solana",candidates=[];
+const $=id=>document.getElementById(id);
+const money=n=>Number.isFinite(+n)?"$"+Number(n).toLocaleString("en-US",{maximumFractionDigits:0}):"N/A";
+const num=n=>Number(n)||0;
+
+function score(p){
+const liq=num(p.liquidity?.usd),vol=num(p.volume?.h24);
+const change=num(p.priceChange?.h24);
+const buys=num(p.txns?.h24?.buys),sells=num(p.txns?.h24?.sells);
+const age=p.pairCreatedAt?(Date.now()-p.pairCreatedAt)/86400000:9999;
+let s=0;
+s+=Math.min(25,Math.log10(Math.max(1,liq))/6*25);
+s+=Math.min(25,Math.log10(Math.max(1,vol))/7*25);
+s+=Math.max(0,Math.min(20,10+change/10));
+s+=age<7?15:age<30?10:5;
+s+=liq>=10000&&buys>sells?15:liq>=10000?8:0;
+if(liq<5000)s-=25;
+return Math.max(0,Math.min(100,Math.round(s)));
+}
+
+function render(){
+const q=$("filter").value.toLowerCase();
+const data=candidates.filter(p=>
+[p.baseToken?.name,p.baseToken?.symbol,p.baseToken?.address]
+.some(x=>(x||"").toLowerCase().includes(q)));
+const rows=$("rows");
+rows.replaceChildren();
+data.slice(0,50).forEach((p,i)=>{
+const tr=document.createElement("tr");
+const values=[
+"#"+(i+1),
+(p.baseToken?.symbol||"?")+" — "+(p.baseToken?.name||"Unknown"),
+score(p)+"/100",
+money(p.liquidity?.usd),
+money(p.volume?.h24),
+num(p.priceChange?.h24).toFixed(1)+"%"
+];
+values.forEach((v,j)=>{
+const td=document.createElement("td");
+
+if(j===1 && p.url){
+  // OTC_CLICKABLE_TOKENS
+  const link=document.createElement("a");
+  link.href=p.url;
+  link.target="_blank";
+  link.rel="noopener noreferrer";
+  link.textContent=v;
+  link.style.fontWeight="bold";
+  link.style.textDecoration="underline";
+  td.appendChild(link);
+}else{
+  td.textContent=v;
+}
+
+if(j===2)td.className="gold";
+if(j===5)td.className=num(p.priceChange?.h24)>=0?"good":"bad";
+tr.appendChild(td);
+});
+const td=document.createElement("td");
+const a=document.createElement("a");
+a.href=p.url||"https://dexscreener.com/";
+a.target="_blank";
+a.rel="noopener noreferrer";
+a.textContent="View";
+td.appendChild(a);
+tr.appendChild(td);
+rows.appendChild(tr);
+});
+$("count").textContent=candidates.length;
+$("status").textContent=data.length+" matching candidates";
+}
+
+async function load(){
+$("status").textContent="Fetching live market data...";
+$("rows").replaceChildren();
+$("count").textContent="--";
+try{
+const r=await fetch("https://api.dexscreener.com/token-profiles/latest/v1");
+if(!r.ok)throw Error("Feed unavailable");
+const profiles=await r.json();
+const addresses=[...new Set((Array.isArray(profiles)?profiles:[])
+.filter(p=>p.chainId===chain).map(p=>p.tokenAddress).filter(Boolean))].slice(0,30);
+if(!addresses.length){
+candidates=[];render();return;
+}
+const all=[];
+for(let i=0;i<addresses.length;i+=10){
+const batch=addresses.slice(i,i+10);
+const url="https://api.dexscreener.com/tokens/v1/"+chain+"/"+batch.map(encodeURIComponent).join(",");
+const res=await fetch(url);
+if(!res.ok)continue;
+const pairs=await res.json();
+if(Array.isArray(pairs))all.push(...pairs);
+}
+const best=new Map();
+for(const p of all){
+const address=p.baseToken?.address;
+if(!address)continue;
+const key=address.toLowerCase();
+if(!best.has(key)||num(p.liquidity?.usd)>num(best.get(key).liquidity?.usd))best.set(key,p);
+}
+candidates=[...best.values()].sort((a,b)=>score(b)-score(a));
+render();
+}catch(e){
+$("status").textContent="Unable to load live rankings. Check internet access or API availability.";
+}
+}
+document.querySelectorAll("[data-chain]").forEach(b=>b.onclick=()=>{
+document.querySelectorAll("[data-chain]").forEach(x=>x.classList.remove("active"));
+b.classList.add("active");chain=b.dataset.chain;load();
+});
+$("filter").addEventListener("input",render);
+load();
+</script>
+</body>
+</html>
